@@ -1,0 +1,40 @@
+name: Build Scribbler
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos-build:
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Build Scribbler
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Scribbler.xcodeproj \
+            -scheme Scribbler \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Package test app
+        run: |
+          ditto -c -k --keepParent \
+            build/Build/Products/Release/Scribbler.app \
+            Scribbler.app.zip
+      - name: Upload test app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scribbler-macOS-unsigned
+          path: Scribbler.app.zip
+          if-no-files-found: error
