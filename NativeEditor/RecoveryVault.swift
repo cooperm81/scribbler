@@ -12,7 +12,14 @@ struct RecoverySnapshot: Codable {
 }
 
 final class RecoveryVault {
+    private let overrideURL: URL?
+
+    init(fileURL: URL? = nil) {
+        overrideURL = fileURL
+    }
+
     private var fileURL: URL {
+        if let overrideURL { return overrideURL }
         let directory = FileManager.default.urls(for: .applicationSupportDirectory,
                                                   in: .userDomainMask)[0]
             .appendingPathComponent("Scribbler", isDirectory: true)
