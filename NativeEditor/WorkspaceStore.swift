@@ -33,24 +33,20 @@ final class WorkspaceStore: ObservableObject {
 
     init() {
         activeID = documents.first?.id
+
+        // Never present an AppKit modal alert from a SwiftUI StateObject initializer.
+        // SwiftUI may still be constructing its AttributeGraph, and runModal()
+        // here can abort the process before the editor window is created.
+        // Restore automatically as unsaved copies, preserving the snapshot
+        // until the user explicitly saves or discards the recovered content.
         if let snapshot = recovery.read(), !snapshot.documents.isEmpty {
-            let alert = NSAlert()
-            alert.messageText = "Recover unsaved Scribbler documents?"
-            alert.informativeText = "Scribbler found locally preserved edits. Restore them as unsaved documents, or discard the recovery copies. Original files will not be overwritten."
-            alert.addButton(withTitle: "Restore")
-            alert.addButton(withTitle: "Discard")
-            if alert.runModal() == .alertFirstButtonReturn {
-                documents = snapshot.documents.map { item in
-                    var doc = OpenDocument(text: item.text)
-                    doc.recoveryTitle = "Recovered — " + item.title
-                    doc.savedText = item.savedText
-                    return doc
-                }
-                activeID = documents.first?.id
-                scheduleRecovery()
-            } else {
-                recovery.clear()
+            documents = snapshot.documents.map { item in
+                var doc = OpenDocument(text: item.text)
+                doc.recoveryTitle = "Recovered — " + item.title
+                doc.savedText = item.savedText
+                return doc
             }
+            activeID = documents.first?.id
         }
     }
 
