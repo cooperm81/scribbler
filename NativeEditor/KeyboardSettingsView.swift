@@ -14,7 +14,9 @@ enum KeyboardPreferences {
         ("previous", "Find Previous", "g", "command,shift"),
         ("selection", "Use Selection for Find", "e", "command"),
         ("togglePreview", "Toggle Markdown Preview", "p", "command,option"),
-        ("togglePane", "Show/Hide Open Documents", "1", "command,option")
+        ("togglePane", "Show/Hide Open Documents", "1", "command,option"),
+        ("wordForward", "Move Forward One Word", "f", "option"),
+        ("wordBackward", "Move Backward One Word", "b", "option")
     ]
 
     static func defaultKey(_ id: String) -> String {
@@ -40,6 +42,20 @@ enum KeyboardPreferences {
         }
         return result
     }
+    static func conflicts(id: String, key: String, modifiers: EventModifiers) -> [String] {
+        commands.filter { $0.id != id && self.key($0.id) == key && self.modifiers($0.id) == modifiers }
+            .map(\.title)
+    }
+    static func matches(_ event: NSEvent, id: String) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        var expected: NSEvent.ModifierFlags = []
+        let wanted = modifiers(id)
+        if wanted.contains(.command) { expected.insert(.command) }
+        if wanted.contains(.shift) { expected.insert(.shift) }
+        if wanted.contains(.option) { expected.insert(.option) }
+        if wanted.contains(.control) { expected.insert(.control) }
+        return flags == expected && event.charactersIgnoringModifiers?.lowercased() == key(id)
+    }
     static func shortcut(_ id: String) -> KeyboardShortcut {
         KeyboardShortcut(KeyEquivalent(key(id).first ?? " "), modifiers: modifiers(id))
     }
@@ -50,6 +66,7 @@ struct KeyboardSettingsView: View {
     @AppStorage("editorIndentWidth") private var indentWidth = 4
     @AppStorage("editorUseSpaces") private var useSpaces = true
     @AppStorage("editorEmacsKeyBindings") private var emacs = false
+    @AppStorage("editorAutoCapitalizeSentences") private var autoCapitalize = false
 
     var body: some View {
         Form {
@@ -66,6 +83,9 @@ struct KeyboardSettingsView: View {
                      ? "Tab inserts indentation at the cursor. Shift-Tab does nothing."
                      : "Tab indents the current line; Shift-Tab removes one indentation level.")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Editing") {
+                Toggle("Automatically capitalize the first letter of sentences", isOn: $autoCapitalize)
             }
             Section("Key Mappings") {
                 Toggle("Enable Emacs key bindings", isOn: $emacs)
@@ -89,8 +109,10 @@ private struct ShortcutSettingRow: View {
     @State private var shift = false
     @State private var option = false
     @State private var control = false
+    @State private var isLoading = false
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
         HStack {
             Text(title).frame(width: 175, alignment: .leading)
             TextField("Key", text: $key)
@@ -112,6 +134,11 @@ private struct ShortcutSettingRow: View {
             }
             .controlSize(.small)
         }
+        if !conflictingTitles.isEmpty {
+            Text("Shortcut conflicts with: " + conflictingTitles.joined(separator: ", "))
+                .font(.caption).foregroundStyle(.red)
+        }
+        }
         .toggleStyle(.checkbox)
         .onAppear { load() }
         .onChange(of: command) { _ in save() }
@@ -121,19 +148,32 @@ private struct ShortcutSettingRow: View {
     }
 
     private func load() {
+        isLoading = true
         key = KeyboardPreferences.key(id)
         let modifiers = KeyboardPreferences.modifiers(id)
         command = modifiers.contains(.command)
         shift = modifiers.contains(.shift)
         option = modifiers.contains(.option)
         control = modifiers.contains(.control)
+        DispatchQueue.main.async { isLoading = false }
     }
     private func bumpRevision() {
         let defaults = UserDefaults.standard
         defaults.set(defaults.integer(forKey: "shortcutRevision") + 1, forKey: "shortcutRevision")
     }
+    private var currentModifiers: EventModifiers {
+        var value: EventModifiers = []
+        if command { value.insert(.command) }
+        if shift { value.insert(.shift) }
+        if option { value.insert(.option) }
+        if control { value.insert(.control) }
+        return value
+    }
+    private var conflictingTitles: [String] {
+        KeyboardPreferences.conflicts(id: id, key: key, modifiers: currentModifiers)
+    }
     private func save() {
-        guard key.count == 1 else { return }
+        guard !isLoading, key.count == 1, conflictingTitles.isEmpty else { return }
         UserDefaults.standard.set(key, forKey: "shortcut.\(id).key")
         let names = [(command, "command"), (shift, "shift"), (option, "option"), (control, "control")]
             .filter { $0.0 }.map { $0.1 }
