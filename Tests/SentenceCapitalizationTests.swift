@@ -1,12 +1,11 @@
 import Foundation
 
-func @main
+@main
 struct SentenceCapitalizationTests {
+    static func expect(_ condition: Bool, _ message: String) {
+        if !condition { fatalError(message) }
+    }
     static func main() {
-        expect(_ condition: Bool, _ message: String) {
-            if !condition { fatalError(message) }
-        }
-        
         expect(SentenceCapitalization.shouldCapitalize(after: ""), "Start of document")
         expect(SentenceCapitalization.shouldCapitalize(after: "hello. "), "Period + space")
         expect(SentenceCapitalization.shouldCapitalize(after: "hello!  "), "Exclamation + spaces")
