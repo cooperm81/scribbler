@@ -31,10 +31,6 @@ struct NativeEditorApp: App {
                 .onAppear { appDelegate.store = store }
         }
         .commands {
-            CommandGroup(replacing: .appSettings) {
-                SettingsLink { Text("Settings…") }
-                    .keyboardShortcut(",", modifiers: [.command])
-            }
             CommandGroup(replacing: .appInfo) {
                 Button("About Scribbler") { ScribblerAboutWindow.show() }
             }
