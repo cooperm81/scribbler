@@ -1,0 +1,137 @@
+import SwiftUI
+import AppKit
+
+enum KeyboardPreferences {
+    static let commands: [(id: String, title: String, key: String, modifiers: String)] = [
+        ("new", "New Document", "n", "command"),
+        ("open", "Open…", "o", "command"),
+        ("save", "Save", "s", "command"),
+        ("saveAs", "Save As…", "s", "command,shift"),
+        ("close", "Close Document", "w", "command"),
+        ("find", "Find…", "f", "command"),
+        ("replace", "Find and Replace…", "f", "command,option"),
+        ("next", "Find Next", "g", "command"),
+        ("previous", "Find Previous", "g", "command,shift"),
+        ("selection", "Use Selection for Find", "e", "command"),
+        ("togglePreview", "Toggle Markdown Preview", "p", "command,option"),
+        ("togglePane", "Show/Hide Open Documents", "1", "command,option")
+    ]
+
+    static func defaultKey(_ id: String) -> String {
+        commands.first(where: { $0.id == id })?.key ?? ""
+    }
+    static func defaultModifiers(_ id: String) -> String {
+        commands.first(where: { $0.id == id })?.modifiers ?? "command"
+    }
+    static func key(_ id: String) -> String {
+        UserDefaults.standard.string(forKey: "shortcut.\(id).key") ?? defaultKey(id)
+    }
+    static func modifiers(_ id: String) -> EventModifiers {
+        let raw = UserDefaults.standard.string(forKey: "shortcut.\(id).modifiers") ?? defaultModifiers(id)
+        var result: EventModifiers = []
+        for item in raw.split(separator: ",") {
+            switch item {
+            case "command": result.insert(.command)
+            case "shift": result.insert(.shift)
+            case "option": result.insert(.option)
+            case "control": result.insert(.control)
+            default: break
+            }
+        }
+        return result
+    }
+    static func shortcut(_ id: String) -> KeyboardShortcut {
+        KeyboardShortcut(KeyEquivalent(Character(key(id).first ?? " ")), modifiers: modifiers(id))
+    }
+}
+
+struct KeyboardSettingsView: View {
+    @AppStorage("editorTabBehavior") private var tabBehavior = "insert"
+    @AppStorage("editorIndentWidth") private var indentWidth = 4
+    @AppStorage("editorUseSpaces") private var useSpaces = true
+    @AppStorage("editorEmacsKeyBindings") private var emacs = false
+
+    var body: some View {
+        Form {
+            Section("Tab Key") {
+                Picker("Behavior", selection: $tabBehavior) {
+                    Text("Insert at cursor").tag("insert")
+                    Text("Indent entire line").tag("line")
+                }
+                Picker("Tab width", selection: $indentWidth) {
+                    ForEach([2, 4, 8], id: \.self) { width in Text("\(width)").tag(width) }
+                }
+                Toggle("Indent using spaces instead of tab characters", isOn: $useSpaces)
+                Text(tabBehavior == "insert"
+                     ? "Tab inserts indentation at the cursor. Shift-Tab does nothing."
+                     : "Tab indents the current line; Shift-Tab removes one indentation level.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Key Mappings") {
+                Toggle("Enable Emacs key bindings", isOn: $emacs)
+                Text("Edit menu shortcuts below. Changes take effect after reopening the Settings window or updating the menu.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(KeyboardPreferences.commands, id: \.id) { command in
+                    ShortcutSettingRow(id: command.id, title: command.title)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .frame(minWidth: 570, minHeight: 650)
+    }
+}
+
+private struct ShortcutSettingRow: View {
+    let id: String
+    let title: String
+    @State private var key: String = ""
+    @State private var command = true
+    @State private var shift = false
+    @State private var option = false
+    @State private var control = false
+
+    var body: some View {
+        HStack {
+            Text(title).frame(width: 175, alignment: .leading)
+            TextField("Key", text: $key)
+                .frame(width: 38)
+                .onChange(of: key) { value in
+                    let normalized = String(value.lowercased().prefix(1))
+                    if key != normalized { key = normalized }
+                    save()
+                }
+            Toggle("⌘", isOn: $command).help("Command")
+            Toggle("⇧", isOn: $shift).help("Shift")
+            Toggle("⌥", isOn: $option).help("Option")
+            Toggle("⌃", isOn: $control).help("Control")
+            Button("Reset") {
+                UserDefaults.standard.removeObject(forKey: "shortcut.\(id).key")
+                UserDefaults.standard.removeObject(forKey: "shortcut.\(id).modifiers")
+                load()
+            }
+            .controlSize(.small)
+        }
+        .toggleStyle(.checkbox)
+        .onAppear { load() }
+        .onChange(of: command) { _ in save() }
+        .onChange(of: shift) { _ in save() }
+        .onChange(of: option) { _ in save() }
+        .onChange(of: control) { _ in save() }
+    }
+
+    private func load() {
+        key = KeyboardPreferences.key(id)
+        let modifiers = KeyboardPreferences.modifiers(id)
+        command = modifiers.contains(.command)
+        shift = modifiers.contains(.shift)
+        option = modifiers.contains(.option)
+        control = modifiers.contains(.control)
+    }
+    private func save() {
+        guard key.count == 1 else { return }
+        UserDefaults.standard.set(key, forKey: "shortcut.\(id).key")
+        let names = [(command, "command"), (shift, "shift"), (option, "option"), (control, "control")]
+            .filter { $0.0 }.map { $0.1 }
+        UserDefaults.standard.set(names.joined(separator: ","), forKey: "shortcut.\(id).modifiers")
+    }
+}
