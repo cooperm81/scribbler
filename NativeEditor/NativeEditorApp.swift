@@ -22,40 +22,49 @@ final class ScribblerAppDelegate: NSObject, NSApplicationDelegate {
 struct NativeEditorApp: App {
     @NSApplicationDelegateAdaptor(ScribblerAppDelegate.self) private var appDelegate
     @StateObject private var store = WorkspaceStore()
+    @AppStorage("shortcutRevision") private var shortcutRevision = 0
 
     var body: some Scene {
+        let _ = shortcutRevision
         Window("Scribbler", id: "workspace") {
             EditorView(store: store)
                 .onAppear { appDelegate.store = store }
         }
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                SettingsLink { Text("Settings…") }
+                    .keyboardShortcut(",", modifiers: [.command])
+            }
             CommandGroup(replacing: .appInfo) {
                 Button("About Scribbler") { ScribblerAboutWindow.show() }
             }
             CommandGroup(replacing: .newItem) {
-                Button("New") { sendWorkspace("new") }.keyboardShortcut("n")
-                Button("Open…") { sendWorkspace("open") }.keyboardShortcut("o")
+                Button("New") { sendWorkspace("new") }.keyboardShortcut(KeyboardPreferences.shortcut("new"))
+                Button("Open…") { sendWorkspace("open") }.keyboardShortcut(KeyboardPreferences.shortcut("open"))
             }
             CommandGroup(replacing: .saveItem) {
-                Button("Save") { sendWorkspace("save") }.keyboardShortcut("s")
-                Button("Save As…") { sendWorkspace("saveAs") }.keyboardShortcut("s", modifiers: [.command, .shift])
+                Button("Save") { sendWorkspace("save") }.keyboardShortcut(KeyboardPreferences.shortcut("save"))
+                Button("Save As…") { sendWorkspace("saveAs") }.keyboardShortcut(KeyboardPreferences.shortcut("saveAs"))
             }
             CommandMenu("Find") {
-                Button("Find…") { sendFind("find") }.keyboardShortcut("f", modifiers: [.command])
-                Button("Find and Replace…") { sendFind("replace") }.keyboardShortcut("f", modifiers: [.command, .option])
+                Button("Find…") { sendFind("find") }.keyboardShortcut(KeyboardPreferences.shortcut("find"))
+                Button("Find and Replace…") { sendFind("replace") }.keyboardShortcut(KeyboardPreferences.shortcut("replace"))
                 Divider()
-                Button("Find Next") { sendFind("next") }.keyboardShortcut("g", modifiers: [.command])
-                Button("Find Previous") { sendFind("previous") }.keyboardShortcut("g", modifiers: [.command, .shift])
-                Button("Use Selection for Find") { sendFind("selection") }.keyboardShortcut("e", modifiers: [.command])
+                Button("Find Next") { sendFind("next") }.keyboardShortcut(KeyboardPreferences.shortcut("next"))
+                Button("Find Previous") { sendFind("previous") }.keyboardShortcut(KeyboardPreferences.shortcut("previous"))
+                Button("Use Selection for Find") { sendFind("selection") }.keyboardShortcut(KeyboardPreferences.shortcut("selection"))
             }
             CommandMenu("View") {
                 Button("Toggle Markdown Preview") { sendWorkspace("togglePreview") }
-                    .keyboardShortcut("p", modifiers: [.command, .option])
+                    .keyboardShortcut(KeyboardPreferences.shortcut("togglePreview"))
             }
             CommandMenu("Documents") {
-                Button("Close Current Document") { sendWorkspace("close") }.keyboardShortcut("w")
-                Button("Show/Hide Open Documents") { sendWorkspace("togglePane") }.keyboardShortcut("1", modifiers: [.command, .option])
+                Button("Close Current Document") { sendWorkspace("close") }.keyboardShortcut(KeyboardPreferences.shortcut("close"))
+                Button("Show/Hide Open Documents") { sendWorkspace("togglePane") }.keyboardShortcut(KeyboardPreferences.shortcut("togglePane"))
             }
+        }
+        Settings {
+            KeyboardSettingsView()
         }
     }
     private func sendFind(_ command: String) {
