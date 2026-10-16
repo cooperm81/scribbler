@@ -41,7 +41,7 @@ enum KeyboardPreferences {
         return result
     }
     static func shortcut(_ id: String) -> KeyboardShortcut {
-        KeyboardShortcut(KeyEquivalent(Character(key(id).first ?? " ")), modifiers: modifiers(id))
+        KeyboardShortcut(KeyEquivalent(key(id).first ?? " "), modifiers: modifiers(id))
     }
 }
 
