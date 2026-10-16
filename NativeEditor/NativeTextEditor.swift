@@ -94,6 +94,9 @@ struct NativeTextEditor: NSViewRepresentable {
         editor.indentWidth = indentWidth
         editor.tabBehavior = tabBehavior
         editor.emacsKeyBindings = emacsKeyBindings
+        editor.autoCapitalizeSentences = autoCapitalizeSentences
+        editor.onNextDocument = onNextDocument
+        editor.onPreviousDocument = onPreviousDocument
         editor.onOpen = onOpen
         editor.onSave = onSave
         editor.onSaveAs = onSaveAs
@@ -232,11 +235,11 @@ final class IndentingTextView: NSTextView {
     // Ctrl-X is a two-stroke prefix; arrows cycle documents, regardless of
     // whether the optional Emacs navigation bindings are enabled.
     override func keyDown(with event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
         if awaitingControlXCommand {
             awaitingControlXCommand = false
-            if flags.isEmpty && event.keyCode == 124 { onNextDocument?(); return }
-            if flags.isEmpty && event.keyCode == 123 { onPreviousDocument?(); return }
+            if KeyboardPreferences.matchesChordSuffix(event, id: "nextDocument") { onNextDocument?(); return }
+            if KeyboardPreferences.matchesChordSuffix(event, id: "previousDocument") { onPreviousDocument?(); return }
             if emacsKeyBindings && flags == .control,
                let key = event.charactersIgnoringModifiers?.lowercased() {
                 switch key {
