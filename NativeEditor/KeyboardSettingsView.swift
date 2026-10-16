@@ -108,6 +108,7 @@ private struct ShortcutSettingRow: View {
                 UserDefaults.standard.removeObject(forKey: "shortcut.\(id).key")
                 UserDefaults.standard.removeObject(forKey: "shortcut.\(id).modifiers")
                 load()
+                bumpRevision()
             }
             .controlSize(.small)
         }
@@ -127,11 +128,16 @@ private struct ShortcutSettingRow: View {
         option = modifiers.contains(.option)
         control = modifiers.contains(.control)
     }
+    private func bumpRevision() {
+        let defaults = UserDefaults.standard
+        defaults.set(defaults.integer(forKey: "shortcutRevision") + 1, forKey: "shortcutRevision")
+    }
     private func save() {
         guard key.count == 1 else { return }
         UserDefaults.standard.set(key, forKey: "shortcut.\(id).key")
         let names = [(command, "command"), (shift, "shift"), (option, "option"), (control, "control")]
             .filter { $0.0 }.map { $0.1 }
         UserDefaults.standard.set(names.joined(separator: ","), forKey: "shortcut.\(id).modifiers")
+        bumpRevision()
     }
 }
