@@ -12,6 +12,7 @@ struct EditorView: View {
     @AppStorage("editorTabBehavior") private var tabBehavior = "insert"
 
     @AppStorage("editorEmacsKeyBindings") private var emacsKeyBindings = false
+    @AppStorage("editorAutoCapitalizeSentences") private var autoCapitalizeSentences = false
     @AppStorage("editorFontSize") private var fontSize = 13.0
     @AppStorage("editorLineWrap") private var lineWrap = true
     @AppStorage("editorShowLineNumbers") private var showLineNumbers = true
@@ -65,6 +66,8 @@ struct EditorView: View {
         case "save": _ = store.save()
         case "saveAs": _ = store.save(saveAs: true)
         case "close": if let id = store.activeID { store.close(id: id) }
+        case "nextDocument": store.cycleDocument(1)
+        case "previousDocument": store.cycleDocument(-1)
         case "togglePane": store.showDocuments.toggle()
         case "togglePreview": showMarkdownPreview.toggle()
         case "quit": NSApp.terminate(nil)
@@ -158,13 +161,16 @@ struct EditorView: View {
                 HStack(spacing: 0) {
                     NativeTextEditor(text: activeBinding, line: $cursorLine, column: $cursorColumn,
                                  useSpaces: useSpaces, indentWidth: indentWidth, tabBehavior: tabBehavior, emacsKeyBindings: emacsKeyBindings,
+                                 autoCapitalizeSentences: autoCapitalizeSentences,
                                  fontSize: fontSize, lineWrap: lineWrap, showLineNumbers: showLineNumbers,
                                  language: language == "Auto" ? SyntaxHighlighter.detect(store.active?.url) : language,
                                  searchAction: searchAction,
                                  onOpen: { workspaceCommand("open") },
                                  onSave: { workspaceCommand("save") },
                                  onSaveAs: { workspaceCommand("saveAs") },
-                                 onQuit: { workspaceCommand("quit") })
+                                 onQuit: { workspaceCommand("quit") },
+                                 onNextDocument: { workspaceCommand("nextDocument") },
+                                 onPreviousDocument: { workspaceCommand("previousDocument") })
                     .id(store.activeID)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     if showMarkdownPreview {

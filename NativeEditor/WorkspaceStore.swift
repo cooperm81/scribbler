@@ -83,6 +83,11 @@ final class WorkspaceStore: ObservableObject {
         documents[i].text = value
         scheduleRecovery()
     }
+    func cycleDocument(_ direction: Int) {
+        guard documents.count > 1, let index = activeIndex else { return }
+        let next = (index + direction + documents.count) % documents.count
+        activeID = documents[next].id
+    }
     func newDocument() {
         let doc = OpenDocument()
         documents.append(doc)

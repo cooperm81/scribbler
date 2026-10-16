@@ -50,11 +50,14 @@ struct NativeEditorApp: App {
                 Button("Find Previous") { sendFind("previous") }.keyboardShortcut(KeyboardPreferences.shortcut("previous"))
                 Button("Use Selection for Find") { sendFind("selection") }.keyboardShortcut(KeyboardPreferences.shortcut("selection"))
             }
-            CommandMenu("View") {
+            CommandGroup(after: .toolbar) {
                 Button("Toggle Markdown Preview") { sendWorkspace("togglePreview") }
                     .keyboardShortcut(KeyboardPreferences.shortcut("togglePreview"))
             }
             CommandMenu("Documents") {
+                Button("Next Open Document (⌃X →)") { sendWorkspace("nextDocument") }
+                Button("Previous Open Document (⌃X ←)") { sendWorkspace("previousDocument") }
+                Divider()
                 Button("Close Current Document") { sendWorkspace("close") }.keyboardShortcut(KeyboardPreferences.shortcut("close"))
                 Button("Show/Hide Open Documents") { sendWorkspace("togglePane") }.keyboardShortcut(KeyboardPreferences.shortcut("togglePane"))
             }

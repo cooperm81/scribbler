@@ -20,6 +20,10 @@ jobs:
         run: |
           swiftc NativeEditor/RecoveryVault.swift Tests/RecoveryVaultTests.swift -o /tmp/scribbler-recovery-tests
           /tmp/scribbler-recovery-tests
+      - name: Run sentence capitalization regression tests
+        run: |
+          swiftc NativeEditor/SentenceCapitalization.swift Tests/SentenceCapitalizationTests.swift -o /tmp/scribbler-capitalization-tests
+          /tmp/scribbler-capitalization-tests
       - name: Build Scribbler
         run: |
           set -o pipefail

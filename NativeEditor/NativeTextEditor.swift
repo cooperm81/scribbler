@@ -10,6 +10,7 @@ struct NativeTextEditor: NSViewRepresentable {
     var indentWidth: Int
     var tabBehavior: String
     var emacsKeyBindings: Bool
+    var autoCapitalizeSentences: Bool
     var fontSize: Double
     var lineWrap: Bool
     var showLineNumbers: Bool
@@ -19,6 +20,8 @@ struct NativeTextEditor: NSViewRepresentable {
     var onSave: () -> Void
     var onSaveAs: () -> Void
     var onQuit: () -> Void
+    var onNextDocument: () -> Void
+    var onPreviousDocument: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -64,6 +67,9 @@ struct NativeTextEditor: NSViewRepresentable {
         editor.indentWidth = indentWidth
         editor.tabBehavior = tabBehavior
         editor.emacsKeyBindings = emacsKeyBindings
+        editor.autoCapitalizeSentences = autoCapitalizeSentences
+        editor.onNextDocument = onNextDocument
+        editor.onPreviousDocument = onPreviousDocument
         editor.onOpen = onOpen
         editor.onSave = onSave
         editor.onSaveAs = onSaveAs
@@ -88,6 +94,9 @@ struct NativeTextEditor: NSViewRepresentable {
         editor.indentWidth = indentWidth
         editor.tabBehavior = tabBehavior
         editor.emacsKeyBindings = emacsKeyBindings
+        editor.autoCapitalizeSentences = autoCapitalizeSentences
+        editor.onNextDocument = onNextDocument
+        editor.onPreviousDocument = onPreviousDocument
         editor.onOpen = onOpen
         editor.onSave = onSave
         editor.onSaveAs = onSaveAs
@@ -212,37 +221,52 @@ final class IndentingTextView: NSTextView {
     var indentWidth = 4
     var tabBehavior = "insert"
     var emacsKeyBindings = false
+    var autoCapitalizeSentences = false
+    var onNextDocument: (() -> Void)?
+    var onPreviousDocument: (() -> Void)?
     var onOpen: (() -> Void)?
     var onSave: (() -> Void)?
     var onSaveAs: (() -> Void)?
     var onQuit: (() -> Void)?
     private var killedText = ""
     private var awaitingControlXCommand = false
+    private var isPasting = false
 
-    // Emacs mode is opt-in. Only unmodified Control+letter shortcuts are
-    // intercepted. Command/Option shortcuts continue through AppKit unchanged.
+    // Ctrl-X is a two-stroke prefix; arrows cycle documents, regardless of
+    // whether the optional Emacs navigation bindings are enabled.
     override func keyDown(with event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if !emacsKeyBindings { awaitingControlXCommand = false }
-        if emacsKeyBindings && awaitingControlXCommand {
+        let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        if awaitingControlXCommand {
             awaitingControlXCommand = false
-            if flags == .control, let key = event.charactersIgnoringModifiers?.lowercased() {
+            if KeyboardPreferences.matchesChordSuffix(event, id: "nextDocument") { onNextDocument?(); return }
+            if KeyboardPreferences.matchesChordSuffix(event, id: "previousDocument") { onPreviousDocument?(); return }
+            if emacsKeyBindings && flags == .control,
+               let key = event.charactersIgnoringModifiers?.lowercased() {
                 switch key {
-                case "f": onOpen?() // C-x C-f
-                case "s": onSave?() // C-x C-s
-                case "w": onSaveAs?() // C-x C-w
-                case "c": onQuit?() // C-x C-c
+                case "f": onOpen?()
+                case "s": onSave?()
+                case "w": onSaveAs?()
+                case "c": onQuit?()
                 default: NSSound.beep()
                 }
-            } else {
-                NSSound.beep()
-            }
+            } else { NSSound.beep() }
+            return
+        }
+        if flags == .control && event.charactersIgnoringModifiers?.lowercased() == "x" {
+            awaitingControlXCommand = true
+            return
+        }
+        if KeyboardPreferences.matches(event, id: "wordForward") {
+            moveWordForward(nil)
+            return
+        }
+        if KeyboardPreferences.matches(event, id: "wordBackward") {
+            moveWordBackward(nil)
             return
         }
         if emacsKeyBindings && flags == .control,
            let key = event.charactersIgnoringModifiers?.lowercased() {
             switch key {
-            case "x": awaitingControlXCommand = true
             case "a": moveToBeginningOfLine(nil)
             case "e": moveToEndOfLine(nil)
             case "f": moveForward(nil)
@@ -258,6 +282,30 @@ final class IndentingTextView: NSTextView {
             return
         }
         super.keyDown(with: event)
+    }
+
+    override func paste(_ sender: Any?) {
+        isPasting = true
+        defer { isPasting = false }
+        super.paste(sender)
+    }
+
+    override func insertText(_ insertString: Any, replacementRange: NSRange) {
+        guard autoCapitalizeSentences, !isPasting, !hasMarkedText(),
+              let typed = insertString as? String, typed.count == 1,
+              let letter = typed.unicodeScalars.first, CharacterSet.letters.contains(letter),
+              selectedRange().length == 0 else {
+            super.insertText(insertString, replacementRange: replacementRange)
+            return
+        }
+        let source = string as NSString
+        let caret = min(selectedRange().location, source.length)
+        let preceding = source.substring(to: caret)
+        if SentenceCapitalization.shouldCapitalize(after: preceding) {
+            super.insertText(typed.uppercased(), replacementRange: replacementRange)
+        } else {
+            super.insertText(insertString, replacementRange: replacementRange)
+        }
     }
 
     private func killToEndOfLine() {
