@@ -7,8 +7,9 @@ struct EditorView: View {
     @State private var dragStartWidth: CGFloat?
     @State private var cursorLine = 1
     @State private var cursorColumn = 1
-    @State private var useSpaces = true
-    @State private var indentWidth = 4
+    @AppStorage("editorUseSpaces") private var useSpaces = true
+    @AppStorage("editorIndentWidth") private var indentWidth = 4
+    @AppStorage("editorTabBehavior") private var tabBehavior = "insert"
 
     @AppStorage("editorEmacsKeyBindings") private var emacsKeyBindings = false
     @AppStorage("editorFontSize") private var fontSize = 13.0
@@ -156,7 +157,7 @@ struct EditorView: View {
                 }
                 HStack(spacing: 0) {
                     NativeTextEditor(text: activeBinding, line: $cursorLine, column: $cursorColumn,
-                                 useSpaces: useSpaces, indentWidth: indentWidth, emacsKeyBindings: emacsKeyBindings,
+                                 useSpaces: useSpaces, indentWidth: indentWidth, tabBehavior: tabBehavior, emacsKeyBindings: emacsKeyBindings,
                                  fontSize: fontSize, lineWrap: lineWrap, showLineNumbers: showLineNumbers,
                                  language: language == "Auto" ? SyntaxHighlighter.detect(store.active?.url) : language,
                                  searchAction: searchAction,

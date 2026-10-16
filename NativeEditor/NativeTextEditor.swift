@@ -8,6 +8,7 @@ struct NativeTextEditor: NSViewRepresentable {
     @Binding var column: Int
     var useSpaces: Bool
     var indentWidth: Int
+    var tabBehavior: String
     var emacsKeyBindings: Bool
     var fontSize: Double
     var lineWrap: Bool
@@ -61,6 +62,7 @@ struct NativeTextEditor: NSViewRepresentable {
         editor.string = text
         editor.useSpaces = useSpaces
         editor.indentWidth = indentWidth
+        editor.tabBehavior = tabBehavior
         editor.emacsKeyBindings = emacsKeyBindings
         editor.onOpen = onOpen
         editor.onSave = onSave
@@ -84,6 +86,7 @@ struct NativeTextEditor: NSViewRepresentable {
         guard let editor = context.coordinator.editor else { return }
         editor.useSpaces = useSpaces
         editor.indentWidth = indentWidth
+        editor.tabBehavior = tabBehavior
         editor.emacsKeyBindings = emacsKeyBindings
         editor.onOpen = onOpen
         editor.onSave = onSave
@@ -207,6 +210,7 @@ struct NativeTextEditor: NSViewRepresentable {
 final class IndentingTextView: NSTextView {
     var useSpaces = true
     var indentWidth = 4
+    var tabBehavior = "insert"
     var emacsKeyBindings = false
     var onOpen: (() -> Void)?
     var onSave: (() -> Void)?
@@ -297,10 +301,49 @@ final class IndentingTextView: NSTextView {
         insertText("\n" + indentation, replacementRange: selectedRange())
     }
     override func insertTab(_ sender: Any?) {
-        if useSpaces {
-            insertText(String(repeating: " ", count: max(1, indentWidth)), replacementRange: selectedRange())
-        } else { super.insertTab(sender) }
+        if tabBehavior == "line" {
+            changeLineIndent(outdent: false)
+        } else {
+            insertText(useSpaces ? String(repeating: " ", count: max(1, indentWidth)) : "\t",
+                       replacementRange: selectedRange())
+        }
     }
+
+    override func insertBacktab(_ sender: Any?) {
+        if tabBehavior == "line" { changeLineIndent(outdent: true) }
+        // In insert mode Shift-Tab deliberately does nothing.
+    }
+
+    private func changeLineIndent(outdent: Bool) {
+        let source = string as NSString
+        let selection = selectedRange()
+        let caret = min(selection.location, source.length)
+        let line = source.lineRange(for: NSRange(location: caret, length: 0))
+        let prefix = source.substring(with: line)
+        let width = max(1, indentWidth)
+        let replacement: String
+        let range: NSRange
+        if outdent {
+            if prefix.hasPrefix("\t") {
+                range = NSRange(location: line.location, length: 1)
+            } else {
+                let spaces = prefix.prefix(while: { $0 == " " }).count
+                guard spaces > 0 else { return }
+                range = NSRange(location: line.location, length: min(spaces, width))
+            }
+            replacement = ""
+        } else {
+            range = NSRange(location: line.location, length: 0)
+            replacement = useSpaces ? String(repeating: " ", count: width) : "\t"
+        }
+        guard shouldChangeText(in: range, replacementString: replacement) else { return }
+        textStorage?.replaceCharacters(in: range, with: replacement)
+        didChangeText()
+        let delta = (replacement as NSString).length - range.length
+        let newLocation = max(line.location, selection.location + delta)
+        setSelectedRange(NSRange(location: newLocation, length: selection.length))
+    }
+
 }
 
 final class LineNumberRuler: NSRulerView {
