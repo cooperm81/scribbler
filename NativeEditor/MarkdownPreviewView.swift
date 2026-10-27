@@ -28,6 +28,9 @@ struct MarkdownPreviewView: NSViewRepresentable {
         h2 { font-size: 1.55em; border-bottom: 1px solid #ddd; padding-bottom: .2em; }
         h3 { font-size: 1.3em; } h4 { font-size: 1.12em; } h5 { font-size: 1em; } h6 { font-size: .9em; color: #666; }
         p { margin: .65em 0; } li { margin: .25em 0; } ul,ol { padding-left: 1.8em; }
+        li.task-item { list-style: none; }
+        li.task-item > input[type="checkbox"] { margin: 0 .55em 0 -1.4em; vertical-align: middle; accent-color: #1769aa; }
+        li.task-item > input[type="checkbox"]:disabled { opacity: 1; cursor: default; }
         pre { padding: 12px; overflow-x: auto; border-radius: 6px; background: #f2f3f5; }
         code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; }
         :not(pre)>code { background: #f2f3f5; padding: 2px 4px; border-radius: 3px; }
@@ -86,7 +89,12 @@ private enum HTMLRenderer {
         case let block as CodeBlock: return "<pre><code>\(escape(block.code))</code></pre>"
         case is UnorderedList: return "<ul>\(inner)</ul>"
         case is OrderedList: return "<ol>\(inner)</ol>"
-        case is ListItem: return "<li>\(inner)</li>"
+        case let item as ListItem:
+            if let checkbox = item.checkbox {
+                let checked = checkbox == .checked ? " checked" : ""
+                return "<li class=\"task-item\"><input type=\"checkbox\" disabled\(checked)>\(inner)</li>"
+            }
+            return "<li>\(inner)</li>"
         case is BlockQuote: return "<blockquote>\(inner)</blockquote>"
         case is ThematicBreak: return "<hr>"
         case let link as Markdown.Link:
